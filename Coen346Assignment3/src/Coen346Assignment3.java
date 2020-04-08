@@ -6,6 +6,7 @@ import static java.lang.System.out;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.LinkedList;
 
 
@@ -22,39 +23,43 @@ public class Coen346Assignment3 {
 	static Semaphore AllowQ2 = new Semaphore(1);
 	static LinkedList<Process> readyQueue1 = new LinkedList<>();	//Queue with whole thread info,  Arrive time, Run time, Wait time, Completion time
 	static LinkedList<Process> readyQueue2 = new LinkedList<>();	//First and second processors
-	static Semaphore sharedVar = new Semaphore(1);
-	static LinkedList<Process> waitQ = new LinkedList<>();
-	// critical time of system in miliseconds
+	static LinkedList<Process> waitQ1 = new LinkedList<>();
+	static LinkedList<Process> waitQ2 = new LinkedList<>();
+	// critical time of system
 	static AtomicInteger time = new AtomicInteger(0);
+	
+	private static DecimalFormat df2 = new DecimalFormat("#.##");
+	
+	
+	//System.currentTimeMillis();
 	//number of miliseconds in seconds used for conversion
-	static int milisec = 1;
+	int mili = 1000;
 
 	
 	public static void main(String[] args) {
 		int length = 0;
 
 		try {
-			FileReader fr =  new FileReader ("Input.txt");
+			FileReader fr =  new FileReader ("processes.txt");
 			BufferedReader br = new BufferedReader(fr);
-			
-			while((br.readLine()) !=null) {
-				length++;
-			}			
+			length= Integer.parseInt(br.readLine());			
 				br.close();
 				
 			}catch (IOException e) {
 				out.println("File not found");
 			}
+		out.println("Length: "+length);
 		
 		int[] arr_execut = new int[length];
 		int[] arr_arrive = new int[length];
 			
 		try {
-			FileReader fr =  new FileReader ("Input.txt");
+			FileReader fr =  new FileReader ("processes.txt");
 			BufferedReader br = new BufferedReader(fr);
 			String str;
 			int count=0;
 			out.println("Input values: ");
+			br.readLine();
 			while((str = br.readLine()) !=null) {
 				String tokens[]=str.split("\\s+");
 				/*for(int i=0;i<tokens.length;i++) {
@@ -78,7 +83,7 @@ public class Coen346Assignment3 {
 			//Check values of Arrive and Execute
 			out.println("Array: ");
 		
-			for(int i=0; i<arr_arrive.length;i++) {
+			for(int i=0; i<length;i++) {
 				out.println(arr_arrive[i] +" "+arr_execut[i]);
 			}out.print("\n");
 		
@@ -86,62 +91,82 @@ public class Coen346Assignment3 {
 	    	Process [] p = new Process[length];
 		    for(int i=0; i<length; i++) {
 		    	p[i]=  new Process(i+1,arr_arrive[i],arr_execut[i]);
-		    	waitQ.add(p[i]);
 		    	
 		    }out.println("\n");
 		    
-		    double smallest = waitQ.get(0).getArrivalTime();
-		    for(int i = 0;i<waitQ.size();i++) {
-		    	if(waitQ.get(i).getArrivalTime()<smallest) {
-		    		smallest = waitQ.get(i).getArrivalTime();
+		    double smallest = p[0].getArrivalTime();
+		    for(int i = 0;i<length;i++) {
+		    	if(p[i].getArrivalTime()<smallest) {
+		    		smallest = p[i].getArrivalTime();
 		    	}
 		    }
-		    out.println("Time: "+ time.get()/milisec);
-		    while(time.get()/milisec<smallest) {
-		    	time.addAndGet(milisec);
-		    	out.println("Time: "+ time.get()/milisec);
+		    out.println("Time: "+ time.get());
+		    while(time.get()<smallest) {
+		    	time.addAndGet(1);
+		    	out.println("Time: "+ time.get());
 		    }
-		    for(int i=0;i<waitQ.size();i++) {
-		    	if(i%2==0) {
-			    	if(waitQ.get(i).getArrivalTime()<=time.get()) {
-			    		readyQueue2.add(waitQ.get(i));
-			    		printQ2();
-			    	}
-		    	}else {
-			    	if(waitQ.get(i).getArrivalTime()<=time.get()) {
-			    		readyQueue1.add(waitQ.get(i));
-			    		printQ1();
-			    	}
-		    	}
-		    	
-		    }/*
 		    
-		    //Thread declaration for multiple threads
-		   Thread [] t= new Thread [waitQ.size()];
-		   for(int i=0; i<waitQ.size(); i++) {
-			   if(i%2==0) {
-				   t[i] = new Thread(new MyThread2(waitQ.get(i)));
-			   }else {
-		    	t[i] = new Thread(new MyThread1(waitQ.get(i)));
+		    int[] match = new int[length];
+		    //initializing match to -1 for all values. No matches unless value changed
+		    for(int i=0;i<length;i++) {
+		    	match[i] = -1;
+		    }
+		    
+		    for(int i=0;i<length-1;i++) {
+		    	for(int j=i+1;j<length;j++) {
+		    		if(p[i].getArrivalTime()==p[j].getArrivalTime()) {
+		    			//value changed when matched
+		    			match[i] = j;
+		    			out.println("TRUE at "+i+" and "+match[i]);
+
+		    		}
 		    	}
 		    }
 
+		    for(int i=0;i<length;i++) {
+		    	if(match[i]>0) {
+		    		out.println("Q2");
+		    		waitQ2.add(p[i]);
+		    		p[i].printProcess();
+		    	}else {
+		    		out.println("Q1");
+		    		waitQ1.add(p[i]);
+		    		p[i].printProcess();
+		    	}
+		    }
+		    
+		    //Thread declaration for multiple threads
+		   Thread [] t= new Thread [length];
+		   
+		   int count1 = 0;
+		   int count2 = 0;
+
+		   for(int i=0;i<length;i++) {
+			   if(match[i]>0) {
+			   		t[i] = new Thread(new MyThread2(waitQ2.get(count2)));
+			   		count2++;
+			   
+		   		}else { 
+		   			t[i] = new Thread(new MyThread1(waitQ1.get(count1)));
+		   			count1++;
+		   		}
+		   }
 		    
 		    //Thread start for all the threads
-		    for(int i=0; i<waitQ.size(); i++) {
+		    for(int i=0; i<length; i++) {
 		    	t[i].start();
 		    }
 
 		    
 		  //Join all threads
 		    try {
-			    for(int i=0; i<waitQ.size(); i++) {
+			    for(int i=0; i<length; i++) {
 			    	t[i].join();
 			    }
 
 			} catch (InterruptedException e) {
 				e.printStackTrace();
-			}*/
+			}
 		    		   
 	}
 	
@@ -152,8 +177,8 @@ public class Coen346Assignment3 {
 		int process;
 		double arrivalTime;
 		double runTime;
-		double quantum = 0; //arbitrary thresh hold to avoid starvation
 		int count = 0;
+		double Ttime = 0;	// local thread time that increments within each thread
 
 		public MyThread1(Process p) {
 
@@ -163,76 +188,79 @@ public class Coen346Assignment3 {
 
 		}
 		public void run() {
+			int c =0;
 			while(runTime!=0) {
+				
 				//Check execution queue every time
 				try {
 					AllowQ1.acquire();
 					checkArrival1();
-					if(!readyQueue1.isEmpty()) {
-					    double largest = readyQueue1.getFirst().getExecuteTime();
-					    for(int i = 1;i<readyQueue1.size();i++) {
-					    	if(readyQueue1.get(i).getExecuteTime()>largest) {
-					    		largest = readyQueue1.get(i).getExecuteTime();
-					    	}
-					    }
-					    quantum = largest*0.1;
-						}
 				}catch (InterruptedException e) {e.printStackTrace();}finally{
 					AllowQ1.release();
 				}
 				
 				if(!readyQueue1.isEmpty()) {
-				if(readyQueue1.getFirst().getProcessNumber()==process) {
-					try {				
-						//Round Robin logic
-						AllowRobin1.acquire();
-						count++;
-						if(count==1) {
-							out.println("Time "+time.get()/milisec+", Process "+process+", Started");
+					if(readyQueue1.getFirst().getProcessNumber()==process) {
+						try {				
+							//Round Robin logic
+							AllowRobin1.acquire();
+							
+							if((int)(Ttime*10)%10==0) {
+								if(c==0) {
+									Ttime=time.get();
+									c++;
+								}else {
+									time.set((int)Ttime);
+								}	
+							}
+							
+							count++;
+							if(count==1) {
+								out.println("Time "+df2.format(Ttime)+", Process "+process+", Started");
+							}
+							out.println("Time "+df2.format(Ttime)+", Process "+process+", Resumed");
+							double q = 0.1;
+							
+							if (runTime > q) {
+								Ttime += q;  
+							    runTime = runTime - q; 
+							    
+							}else {
+								Ttime += runTime;  
+								runTime = 0; 
+								out.println("Time "+df2.format(Ttime)+", Process "+process+", Finished");
+							}
+							readyQueue1.getFirst().setProcess(process, arrivalTime, runTime);
+							
+							if(runTime == 0) {
+								out.println("Time "+df2.format(Ttime)+ ", Process "+ process+" is Done.");
+								if((int)(Ttime*10)%10==0) {
+									time.set((int)Ttime);
+									Ttime=time.get();
+									c=0;
+									}
+								readyQueue1.removeFirst();
+								
+							}else if(runTime>0.1) {
+								out.println("Time "+df2.format(Ttime)+", Process "+process+", Paused");
+								if((int)(Ttime*10)%10==0) {
+									time.set((int)Ttime);
+									Ttime=time.get();
+									c=0;
+									}
+							}
+						}catch (InterruptedException e) {e.printStackTrace();}finally {
+							// calling release() after a successful acquire()
+							AllowRobin1.release();
 						}
-						
-						out.println("Time "+time.get()/milisec+", Process "+process+", Resumed");
-						//readyQueue.getFirst().setWait();
-						int q=3;
-						//check for starvation 
-
-						//do priority on Size
-						if (runTime > 0.1) { 
-						//readyQueue.getFirst().printProcess();
-							  
-							time.addAndGet(q);  
-						    runTime = runTime - q; 
-						      
-						
-						}else {
-							time.addAndGet((int)runTime*milisec); 
-							runTime = 0; 
-							out.println("Time "+time.get()/milisec+", Process "+process+", Finished");
-						}
-						readyQueue1.getFirst().setProcess(process, arrivalTime, runTime);
-						if(q>0) { 
-							checkQ1();
-						}
-						
-						if(runTime == 0) {
-							checkQ1();
-							out.println("Time "+time.get()/milisec+ ", Process "+ process+" is Done.");
-							readyQueue1.removeFirst();
-						}else if(runTime>0.1) {
-							out.println("Time "+time.get()/milisec+", Process "+process+", Paused");
-						}
-					}catch (InterruptedException e) {e.printStackTrace();}finally {
-						// calling release() after a successful acquire()
-						AllowRobin1.release();
 					}
-				}
 				try {
 					Thread.sleep(100);
 				} catch (InterruptedException e) {e.printStackTrace();}
 				
 			}else{
-				time.addAndGet(milisec);
-				out.println("Time "+time.get()/milisec);
+				//time.addAndGet(1);
+				//out.println("Time "+time.get());
 			}
 			}
 			
@@ -245,8 +273,8 @@ public class Coen346Assignment3 {
 		int process;
 		double arrivalTime;
 		double runTime;
-		double quantum = 0; //arbitrary thresh hold to avoid starvation
 		int count = 0;
+		double Ttime = 0;
 
 		public MyThread2(Process p) {
 
@@ -256,20 +284,12 @@ public class Coen346Assignment3 {
 
 		}
 		public void run() {
+			int c=0;
 			while(runTime!=0) {
 				//Check execution queue every time
 				try {
 					AllowQ2.acquire();
-					checkArrival2();
-					if(!readyQueue2.isEmpty()) {
-					    double largest = readyQueue2.getFirst().getExecuteTime();
-					    for(int i = 1;i<readyQueue2.size();i++) {
-					    	if(readyQueue2.get(i).getExecuteTime()>largest) {
-					    		largest = readyQueue2.get(i).getExecuteTime();
-					    	}
-					    }
-					    quantum = largest*0.1;
-						}
+					checkArrival2();			
 				}catch (InterruptedException e) {e.printStackTrace();}finally{
 					AllowQ2.release();
 				}
@@ -279,42 +299,51 @@ public class Coen346Assignment3 {
 					try {				
 						//Round Robin logic
 						AllowRobin2.acquire();
-						count++;
-						if(count==1) {
-							out.println("Time "+time.get()/milisec+", Process "+process+", Started");
+						
+						if((int)(Ttime*10)%10==0) {
+							if(c==0) {
+								Ttime=time.get();
+								c++;
+							}else {
+								time.set((int)Ttime);
+							}	
 						}
 						
-						out.println("Time "+time.get()/milisec+", Process "+process+", Resumed");
-						//readyQueue.getFirst().setWait();
-						int q = 3;
+						count++;
+						if(count==1) {
+							out.println("Time "+df2.format(Ttime)+", Process "+process+", Started");
+						}
+						
+						out.println("Time "+df2.format(Ttime)+", Process "+process+", Resumed");
+						double q = 0.1;
 						//check for starvation 
 						//do priority on Size
-					    if (runTime > 0.1) { 
-					    	//readyQueue.getFirst().printProcess();
-					    	  
-					    	time.addAndGet(q); 
-					        runTime = runTime - q; 
-					          
+					    if (runTime > q) {					    	  
+					    	Ttime+=q; 
+					        runTime = runTime - q;
 
 					      }else {  
 					    	// for last time 
-					    	time.addAndGet((int)runTime*milisec); 
+					    	Ttime+= runTime; 
 					        runTime = 0; 
-					        out.println("Time "+time.get()/milisec+", Process "+process+", Finished");
+					        out.println("Time "+df2.format(Ttime)+", Process "+process+", Finished");
 					      }
 					      readyQueue2.getFirst().setProcess(process, arrivalTime, runTime);
-						  if(q>0) {
-					      checkQ2();
-					      }
 	
-
-						
 						if(runTime == 0) {
-							checkQ2();
-							out.println("Time "+time.get()/milisec+ ", Process "+ process+" is Done.");
+							out.println("Time "+df2.format(Ttime)+ ", Process "+ process+" is Done.");
+							if((int)(Ttime*10)%10==0) {
+								time.set((int)Ttime);
+								Ttime=time.get();
+								c=0;
+								}
 							readyQueue2.removeFirst();
 						}else if(runTime>0.1) {
-							out.println("Time "+time.get()/milisec+", Process "+process+", Paused");
+							if((int)(Ttime*10)%10==0) {
+								time.set((int)Ttime);
+								Ttime=time.get();
+								c=0;
+								}
 						}
 					}catch (InterruptedException e) {e.printStackTrace();}finally {
 						// calling release() after a successful acquire()
@@ -326,8 +355,8 @@ public class Coen346Assignment3 {
 				} catch (InterruptedException e) {e.printStackTrace();}
 				
 			}else{
-				time.addAndGet(milisec);
-				out.println("Time "+time.get()/milisec);
+				//time.addAndGet(1);
+				//out.println("Time "+time.get());
 			}
 			}
 			
@@ -336,17 +365,15 @@ public class Coen346Assignment3 {
 	
 	//Checks if the process has arrived and creates a thread for it.
 	public static void checkArrival1() {
-		Thread  t = new Thread();
-		for(int i=0;i<waitQ.size();i++) {
-			if(waitQ.get(i).getArrivalTime()<=time.get()/milisec) {
+		for(int i=0;i<waitQ1.size();i++) {
+			if(waitQ1.get(i).getArrivalTime()<=time.get()) {
 				//if the value is empty don't add
-				if(waitQ.get(i).getExecuteTime()==0) {
+				if(waitQ1.get(i).getExecuteTime()==0) {
 					//do nothing
 				}
-				//If priority does not contain value, add to queue
-				else if(!readyQueue1.contains(waitQ.get(i))) {
-					readyQueue1.addFirst(waitQ.get(i));	
-					t = new Thread(new MyThread1(readyQueue1.getFirst()));
+				//If priorityQ does not contain value, add to queue
+				else if(!readyQueue1.contains(waitQ1.get(i))) {
+					readyQueue1.addFirst(waitQ1.get(i));
 				}
 			}
 		}
@@ -354,58 +381,15 @@ public class Coen346Assignment3 {
 	}
 	
 	public static void checkArrival2() {
-		Thread  t = new Thread();
-		for(int i=0;i<waitQ.size();i++) {
-			if(waitQ.get(i).getArrivalTime()<=time.get()/milisec) {
+		for(int i=0;i<waitQ2.size();i++) {
+			if(waitQ2.get(i).getArrivalTime()<=time.get()) {
 				//if the value is empty don't add
-				if(waitQ.get(i).getExecuteTime()==0) {
-					//do nothing
-				}
-				//If priority does not contain value, add to queue
-				else if(!readyQueue2.contains(waitQ.get(i))) {
-					readyQueue2.addFirst(waitQ.get(i));	
-					t = new Thread(new MyThread2(readyQueue2.getFirst()));
+				if(!(waitQ2.get(i).getExecuteTime()==0) && !readyQueue2.contains(waitQ2.get(i))) {
+					readyQueue2.addFirst(waitQ2.get(i));
 				}
 			}
 		}
 
-	}
-	
-	//Algorithm that puts the values in order, currently inefficient Needs improvement
-	public static void checkQ1() {
-		for(int i=1;i<readyQueue1.size();i++) {
-			//If time for 1>2, switch
-			if(readyQueue1.get(i-1).getExecuteTime()>readyQueue1.get(i).getExecuteTime()) {
-				Process holder = readyQueue1.get(i);
-				readyQueue1.remove(i);
-				for(int j=0;j<readyQueue1.size();j++) {
-					if(!readyQueue1.contains(holder)) {
-						if(holder.getExecuteTime()<readyQueue1.get(j).getExecuteTime()) {
-							readyQueue1.add(j, holder);
-							break;
-						}
-					}
-				}
-			}
-		}
-	}
-	
-	public static void checkQ2() {
-		for(int i=1;i<readyQueue2.size();i++) {
-			//If time for 1>2, switch
-			if(readyQueue2.get(i-1).getExecuteTime()>readyQueue2.get(i).getExecuteTime()) {
-				Process holder = readyQueue2.get(i);
-				readyQueue2.remove(i);
-				for(int j=0;j<readyQueue2.size();j++) {
-					if(!readyQueue2.contains(holder)) {
-						if(holder.getExecuteTime()<readyQueue2.get(j).getExecuteTime()) {
-							readyQueue2.add(j, holder);
-							break;
-						}
-					}
-				}
-			}
-		}
 	}
 	//print queue, good visual check
 	public static void printQ1() {
@@ -423,5 +407,5 @@ public class Coen346Assignment3 {
 				out.print(" -> ");
 			}
 		}out.println();
-	} 
+	}
 	}

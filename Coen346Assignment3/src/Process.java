@@ -16,7 +16,7 @@ public class Process {
 	
 	public void printProcess() {
 		System.out.println("Process number #"+ this.processNum +" containt an arrival time of "
-				+ this.processNum + "secs, and executes for "+ this.executTime+" secs");
+				+ this.arrTime + "secs, and executes for "+ this.executTime+" secs");
 	}
 	
 	
