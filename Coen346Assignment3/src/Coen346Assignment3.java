@@ -1,12 +1,13 @@
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import static java.lang.System.out;
-
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 
@@ -21,24 +22,28 @@ public class Coen346Assignment3 {
 	static Semaphore AllowQ1 = new Semaphore(1);
 	static Semaphore AllowRobin2=new Semaphore(1);
 	static Semaphore AllowQ2 = new Semaphore(1);
+	static Semaphore globalLock = new Semaphore(1);
 	static LinkedList<Process> readyQueue1 = new LinkedList<>();	//Queue with whole thread info,  Arrive time, Run time, Wait time, Completion time
 	static LinkedList<Process> readyQueue2 = new LinkedList<>();	//First and second processors
 	static LinkedList<Process> waitQ1 = new LinkedList<>();
 	static LinkedList<Process> waitQ2 = new LinkedList<>();
 	// critical time of system
 	static AtomicInteger time = new AtomicInteger(0);
-	
 	private static DecimalFormat df2 = new DecimalFormat("#.##");
 	
+	//memory array
+	//static Integer[] memory;
+	static ArrayList<Memory> memory;
 	
-	//System.currentTimeMillis();
-	//number of miliseconds in seconds used for conversion
-	int mili = 1000;
-
+	
+	//Command Queue
+	static LinkedList<Command> cmdQ = new LinkedList<>();
+	
 	
 	public static void main(String[] args) {
 		int length = 0;
 
+		//Read in length from input file
 		try {
 			FileReader fr =  new FileReader ("processes.txt");
 			BufferedReader br = new BufferedReader(fr);
@@ -53,6 +58,7 @@ public class Coen346Assignment3 {
 		int[] arr_execut = new int[length];
 		int[] arr_arrive = new int[length];
 			
+		//Read in processes from input file
 		try {
 			FileReader fr =  new FileReader ("processes.txt");
 			BufferedReader br = new BufferedReader(fr);
@@ -62,14 +68,10 @@ public class Coen346Assignment3 {
 			br.readLine();
 			while((str = br.readLine()) !=null) {
 				String tokens[]=str.split("\\s+");
-				/*for(int i=0;i<tokens.length;i++) {
-					array[count]=Integer.parseInt(tokens[i]);
-					count++;
-				}*/
+
 				arr_arrive[count]=Integer.parseInt(tokens[0]);
 				arr_execut[count]=Integer.parseInt(tokens[1]);
 				
-				//s+=str+"\n";
 				out.println(str);
 				count++;
 			}
@@ -78,13 +80,63 @@ public class Coen346Assignment3 {
 			}catch (IOException e) {
 				out.println("File not found");
 			}
+			//Read in Main memory size from input file
+		int memSize = 0;
+		try {
+			FileReader fr =  new FileReader ("memconfig.txt");
+			BufferedReader br = new BufferedReader(fr);
+			String str;
+			out.println("Memory length values: ");
+			while((str = br.readLine()) !=null) {
+				memSize = Integer.parseInt(str);
+				out.println(memSize);
+			}
 			
+			br.close();
+			}catch (IOException e) {
+				out.println("File not found");
+			}
+			memory= new ArrayList<>(memSize);
+			for(int i=0;i<memSize;i++) {
+				Memory m = new Memory();
+				memory.add(m);
+			}
 			
+			//Read commands and queue them
+		try {
+			FileReader fr =  new FileReader ("commands.txt");
+			BufferedReader br = new BufferedReader(fr);
+			String str;
+			String cmd;
+			String id;
+			int val;
+			out.println("Input values: ");
+			while((str = br.readLine()) !=null) {
+				String tokens[]=str.split("\\s+");
+				Command comnd;
+				if(tokens.length==3) {
+					cmd = tokens[0];
+					id = tokens[1];
+					val = Integer.parseInt(tokens[2]);
+					comnd = new Command(cmd,id,val);
+				}else {
+					cmd = tokens[0];
+					id = tokens[1];
+					comnd = new Command(cmd,id);	
+				}
+				cmdQ.add(comnd);
+				out.println(str);
+			}
+			
+			br.close();
+			}catch (IOException e) {
+				out.println("File not found");
+			}
 			//Check values of Arrive and Execute
-			out.println("Array: ");
+			//out.println("Array: ");
 		
 			for(int i=0; i<length;i++) {
-				out.println(arr_arrive[i] +" "+arr_execut[i]);
+				//out.println(arr_arrive[i] +" "+arr_execut[i]);
 			}out.print("\n");
 		
 			//Make processes in the and add them to the queue
@@ -100,10 +152,10 @@ public class Coen346Assignment3 {
 		    		smallest = p[i].getArrivalTime();
 		    	}
 		    }
-		    out.println("Time: "+ time.get());
+		    //out.println("Time: "+ time.get());
 		    while(time.get()<smallest) {
 		    	time.addAndGet(1);
-		    	out.println("Time: "+ time.get());
+		    	//out.println("Time: "+ time.get());
 		    }
 		    
 		    int[] match = new int[length];
@@ -117,7 +169,6 @@ public class Coen346Assignment3 {
 		    		if(p[i].getArrivalTime()==p[j].getArrivalTime()) {
 		    			//value changed when matched
 		    			match[i] = j;
-		    			out.println("TRUE at "+i+" and "+match[i]);
 
 		    		}
 		    	}
@@ -125,16 +176,17 @@ public class Coen346Assignment3 {
 
 		    for(int i=0;i<length;i++) {
 		    	if(match[i]>0) {
-		    		out.println("Q2");
+		    		//out.println("Q2");
 		    		waitQ2.add(p[i]);
-		    		p[i].printProcess();
+		    		//p[i].printProcess();
 		    	}else {
-		    		out.println("Q1");
+		    		//out.println("Q1");
 		    		waitQ1.add(p[i]);
-		    		p[i].printProcess();
+		    		//p[i].printProcess();
 		    	}
 		    }
 		    
+
 		    //Thread declaration for multiple threads
 		   Thread [] t= new Thread [length];
 		   
@@ -219,8 +271,15 @@ public class Coen346Assignment3 {
 								out.println("Time "+df2.format(Ttime)+", Process "+process+", Started");
 							}
 							out.println("Time "+df2.format(Ttime)+", Process "+process+", Resumed");
-							double q = 0.1;
 							
+							//Call function to read task from command.txt
+							globalLock.acquire();
+							memCmd();
+							globalLock.release();
+							//end of action
+							
+							//Adjust the time
+							double q = 0.5;
 							if (runTime > q) {
 								Ttime += q;  
 							    runTime = runTime - q; 
@@ -315,7 +374,15 @@ public class Coen346Assignment3 {
 						}
 						
 						out.println("Time "+df2.format(Ttime)+", Process "+process+", Resumed");
-						double q = 0.1;
+						
+						//Call function to read task from command.txt
+						globalLock.acquire();
+						memCmd();
+						globalLock.release();
+						//end of action
+										
+						
+						double q = 0.5;
 						//check for starvation 
 						//do priority on Size
 					    if (runTime > q) {					    	  
@@ -408,4 +475,91 @@ public class Coen346Assignment3 {
 			}
 		}out.println();
 	}
+	
+	public static void memCmd() {
+		if(!cmdQ.isEmpty()) {
+		if(cmdQ.getFirst().getCmd().equals("Store")) {
+			memStore();
+		}else if(cmdQ.getFirst().getCmd().equals("Lookup")) {
+			memLookup();
+		}else if(cmdQ.getFirst().getCmd().equals("Release")) {
+			memFree();
+		}else {
+			out.println("Unknown Command");
+		}
+		}
+	}
+	
+	public static void memStore() {
+		if(!cmdQ.isEmpty()) {
+			out.println(cmdQ.getFirst().getCmd()+" "+cmdQ.getFirst().getId()+" "+cmdQ.getFirst().getValue());
+			if(!memIsFull()) {
+				for(int i=0;i<memory.size();i++) {
+					if(memory.get(i).getId()==null) {
+						memory.get(i).setId(cmdQ.getFirst().getId());
+						memory.get(i).setValue(cmdQ.getFirst().getValue());
+						break;
+					}
+				}
+				out.println("Adding "+cmdQ.getFirst().getId()+" "+cmdQ.getFirst().getValue() +" to memory");
+				}else if(memIsFull()){	//Add first some value to VM, then add our value in
+				int location=0;
+				for(int i=0;i<memory.size();i++) {
+					if(memory.get(i).getId()!=null) {
+						location = i;
+						break;
+					}
+				}
+				try {
+					FileWriter fw =  new FileWriter ("vm.txt");
+					BufferedWriter bw = new BufferedWriter(fw);
+					String str = memory.get(location).getId()+" "+memory.get(location).getValue();
+					
+					bw.write(str);
+					
+						bw.close();	
+					}catch (IOException e) {
+						out.println("File not found");
+					}
+				out.println("Adding "+memory.get(location).getId()+" "+memory.get(location).getValue() +" to Virtual Memory");
+				memory.get(location).setId(cmdQ.getFirst().getId());
+				memory.get(location).setValue(cmdQ.getFirst().getValue());
+				out.println("Adding "+cmdQ.getFirst().getId()+" "+cmdQ.getFirst().getValue() +" to memory");
+			}else {
+				out.println("We're going to have a problem here.");
+			}
+
+		cmdQ.removeFirst();
+		}
+	}
+	
+	public static void memFree() {
+		if(!cmdQ.isEmpty()) {
+		out.println(cmdQ.getFirst().getCmd()+" "+cmdQ.getFirst().getId());
+		for(int i=0;i<memory.size();i++) {
+			//if(memory.get(i).getId().equals(cmdQ.getFirst().getId())) {
+				//memory.remove(i);
+			//}
+		}
+		cmdQ.removeFirst();
+		}
+	}
+	
+	public static void memLookup() {
+		if(!cmdQ.isEmpty()) {
+		out.println(cmdQ.getFirst().getCmd()+" "+cmdQ.getFirst().getId());
+		cmdQ.removeFirst();
+		}
+	}
+	
+	public static boolean memIsFull() {
+		for(int i=0;i<memory.size();i++) {
+			if(memory.get(i).getId()==null) {	
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	
 	}
