@@ -3,9 +3,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.lang.System.out;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -185,7 +188,6 @@ public class Coen346Assignment3 {
 		    		//p[i].printProcess();
 		    	}
 		    }
-		    
 
 		    //Thread declaration for multiple threads
 		   Thread [] t= new Thread [length];
@@ -219,7 +221,7 @@ public class Coen346Assignment3 {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-		    		   
+		   		   
 	}
 	
 	
@@ -502,7 +504,8 @@ public class Coen346Assignment3 {
 					}
 				}
 				out.println("Adding "+cmdQ.getFirst().getId()+" "+cmdQ.getFirst().getValue() +" to memory");
-				}else if(memIsFull()){	//Add first some value to VM, then add our value in
+				}else if(!memory.isEmpty()){	
+				//Add first some value to VM, then add our value in
 				int location=0;
 				for(int i=0;i<memory.size();i++) {
 					if(memory.get(i).getId()!=null) {
@@ -511,16 +514,15 @@ public class Coen346Assignment3 {
 					}
 				}
 				try {
-					FileWriter fw =  new FileWriter ("vm.txt");
-					BufferedWriter bw = new BufferedWriter(fw);
-					String str = memory.get(location).getId()+" "+memory.get(location).getValue();
-					
-					bw.write(str);
-					
-						bw.close();	
+					File file = new File(Paths.get("vm.txt").toAbsolutePath().toString());             
+					Writer output = new BufferedWriter(new FileWriter(file, true));  
+					String s = memory.get(location).getId()+" "+memory.get(location).getValue();
+					output.append(s+"\n");
+					output.close(); 
 					}catch (IOException e) {
 						out.println("File not found");
 					}
+
 				out.println("Adding "+memory.get(location).getId()+" "+memory.get(location).getValue() +" to Virtual Memory");
 				memory.get(location).setId(cmdQ.getFirst().getId());
 				memory.get(location).setValue(cmdQ.getFirst().getValue());
@@ -535,19 +537,98 @@ public class Coen346Assignment3 {
 	
 	public static void memFree() {
 		if(!cmdQ.isEmpty()) {
+			boolean inMem = false;
 		out.println(cmdQ.getFirst().getCmd()+" "+cmdQ.getFirst().getId());
 		for(int i=0;i<memory.size();i++) {
-			//if(memory.get(i).getId().equals(cmdQ.getFirst().getId())) {
-				//memory.remove(i);
-			//}
+			if(memory.get(i).getId().equals(cmdQ.getFirst().getId())) {
+				memory.get(i).setId(null);
+				memory.get(i).setValue(-1);
+				out.println("Removed item from memory");
+				inMem = true;
+			}
 		}
+		
+		if(!inMem) {	
+			try {
+				FileReader fr =  new FileReader ("vm.txt");
+				BufferedReader br = new BufferedReader(fr);
+				String str;
+				while((str = br.readLine()) !=null) {
+					FileWriter fw =  new FileWriter ("vm.txt");
+					BufferedWriter bw = new BufferedWriter(fw);
+					String tokens[]=str.split("\\s+");
+					if(cmdQ.getFirst().getId().equals(tokens[0])) {
+						//How do you remove an item from a file?
+						str = "";
+						bw.append(str);
+						
+					}else {
+						bw.append(str);
+					}
+					
+					bw.close();
+				}
+				
+				br.close();
+				}catch (IOException e) {
+					out.println("File not found");
+				}
+			out.println("Removed item from VM");
+		}
+		
 		cmdQ.removeFirst();
 		}
 	}
 	
 	public static void memLookup() {
 		if(!cmdQ.isEmpty()) {
+			boolean inMem = false;
 		out.println(cmdQ.getFirst().getCmd()+" "+cmdQ.getFirst().getId());
+		for(int i=0;i<memory.size();i++) {
+			if(memory.get(i).getId().equals(cmdQ.getFirst().getId())) {
+				out.println("Value "+memory.get(i).getValue());
+				inMem = true;
+			}
+		}
+		
+		if(!inMem) {
+			try {
+				FileReader fr =  new FileReader ("vm.txt");
+				BufferedReader br = new BufferedReader(fr);
+				String str;
+				while((str = br.readLine()) !=null) {
+					String tokens[]=str.split("\\s+");
+					if(cmdQ.getFirst().getId().equals(tokens[0])) {
+						out.println("Value in VM "+tokens[1]);
+						//Move item to main memory from VM, and move another item to VM	
+						//Add first some value to VM, then add our value in
+						int location=0;
+						for(int i=0;i<memory.size();i++) {
+							if(memory.get(i).getId()!=null) {
+								location = i;
+								break;
+							}
+						}
+						try {
+							File file = new File(Paths.get("vm.txt").toAbsolutePath().toString());             
+							Writer output = new BufferedWriter(new FileWriter(file, true));  
+							String s = memory.get(location).getId()+" "+memory.get(location).getValue();
+							output.append(s+"\n");
+							output.close(); 
+							}catch (IOException e) {
+								out.println("File not found");
+							}
+						out.println("Adding "+memory.get(location).getId()+" "+memory.get(location).getValue() +" to Virtual Memory");
+						memory.get(location).setId(tokens[0]);
+						memory.get(location).setValue(Integer.parseInt(tokens[1]));
+						out.println("Adding "+memory.get(location).getId()+" "+memory.get(location).getValue()+" to memory");
+					}
+				}
+				br.close();
+				}catch (IOException e) {
+					out.println("File not found");
+				}
+		}
 		cmdQ.removeFirst();
 		}
 	}
